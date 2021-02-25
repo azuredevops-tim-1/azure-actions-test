@@ -1,0 +1,69 @@
+name: Frontend
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+    - 'main'
+    paths:
+    - 'src/app/frontend/**'
+  pull_request:
+    branches:
+    - 'main'
+    paths:
+    - 'src/app/frontend/**'
+
+jobs:
+  frontend_build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup .NET Core
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: 3.1.406
+
+      - name: Build with dotnet
+        run: dotnet build ./src/app/frontend/DevOps.Frontend.sln -c Release
+    
+      - name: dotnet publish
+        run: dotnet publish ./src/app/frontend/DevOps.Frontend.sln -c Release -o ./dist
+
+      - uses: actions/upload-artifact@master
+        with:
+          name: drop
+          path: ./dist
+
+  frontend_deploy_dev:
+    runs-on: ubuntu-latest
+    environment: dev
+    needs: frontend_build
+    steps:
+      - uses: actions/download-artifact@master
+        with:
+          name: drop
+          path: ./dist
+
+      - uses: azure/webapps-deploy@v1
+        with:
+          app-name: app
+          publish-profile: ${{ secrets.APP_PUBLISH_PROFILE_APP }}
+          package: './dist'
+
+  frontend_deploy_prd:
+    runs-on: ubuntu-latest
+    environment: prd
+    needs: frontend_deploy_dev
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/download-artifact@master
+        with:
+          name: drop
+          path: ./dist
+
+      - uses: azure/webapps-deploy@v1
+        with:
+          app-name: app
+          publish-profile: ${{ secrets.APP_PUBLISH_PROFILE_APP }}
+          package: './dist'
