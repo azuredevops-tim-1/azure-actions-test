@@ -1,0 +1,95 @@
+name: Infrastructure
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+    - 'main'
+    paths:
+    - 'src/infra/**'
+  pull_request:
+    branches:
+    - 'main'
+    paths:
+    - 'src/infra/**'
+
+env:
+  ARM_CLIENT_ID: ${{secrets.INFRA_TF_CLIENT_ID}}
+  ARM_CLIENT_SECRET: ${{secrets.INFRA_TF_CLIENT_SECRET}}
+  ARM_SUBSCRIPTION_ID: ${{secrets.INFRA_TF_SUBSCRIPTION_ID}}
+  ARM_TENANT_ID: ${{secrets.INFRA_TF_TENANT_ID}}
+  TF_VAR_location: westeurope
+
+jobs:
+  terraform_dev:
+    runs-on: ubuntu-latest
+    environment: dev
+
+    env:
+      TF_VAR_resource_name: ghxax-devops-dev
+      TF_VAR_sql_user: ${{secrets.INFRA_TF_SQL_USER}}
+      TF_VAR_sql_password: ${{secrets.INFRA_TF_SQL_PASSWORD}}
+
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v1
+
+      - name: Terraform Init
+        run: terraform -chdir=./src/infra init
+
+      - name: Terraform Format
+        run: terraform -chdir=./src/infra fmt -check
+
+      - name: Terraform Workspace DEV
+        run: terraform -chdir=./src/infra workspace new dev
+        continue-on-error: true
+
+      - name: Terraform Select Workspace DEV
+        run: terraform -chdir=./src/infra workspace select dev
+
+      - name: Terraform Plan
+        run: terraform -chdir=./src/infra plan
+
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/main'
+        run: terraform -chdir=./src/infra apply -auto-approve
+
+  terraform_prd:
+    runs-on: ubuntu-latest
+    environment: prd
+    if: github.ref == 'refs/heads/main'
+    needs: terraform_dev
+
+    env:
+      TF_VAR_resource_name: ghxax-devops-prd
+      TF_VAR_sql_user: ${{secrets.INFRA_TF_SQL_USER}}
+      TF_VAR_sql_password: ${{secrets.INFRA_TF_SQL_PASSWORD}}
+
+    steps:
+      - uses: actions/checkout@v2
+      
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v1
+
+      - name: Terraform Init
+        run: terraform -chdir=./src/infra init
+
+      - name: Terraform Format
+        run: terraform -chdir=./src/infra fmt -check
+
+      - name: Terraform Create Workspace PRD
+        run: terraform -chdir=./src/infra workspace new prd
+        continue-on-error: true
+
+      - name: Terraform Select Workspace PRD
+        run: terraform -chdir=./src/infra workspace select prd
+
+      - name: Terraform Plan
+        run: terraform -chdir=./src/infra plan
+
+      - name: Terraform Apply
+        if: github.ref == 'refs/heads/main'
+        run: terraform -chdir=./src/infra apply -auto-approve
+
