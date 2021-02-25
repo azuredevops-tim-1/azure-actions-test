@@ -1,0 +1,14 @@
+{
+  "dependencies": {
+    "appInsights1": {
+      "resourceId": "/subscriptions/[parameters('subscriptionId')]/resourceGroups/[parameters('resourceGroupName')]/providers/microsoft.insights/components/srs-bandplanr-prd-web",
+      "type": "appInsights.azure",
+      "connectionId": "APPINSIGHTS_CONNECTIONSTRING",
+      "secretStore": null
+    },
+    "mssql1": {
+      "type": "mssql.local",
+      "connectionId": "DevOpsFrontendContext"
+    }
+  }
+}
