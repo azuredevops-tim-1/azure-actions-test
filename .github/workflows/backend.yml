@@ -1,0 +1,68 @@
+name: Backend
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+    - 'main'
+    paths:
+    - 'src/app/backend/**'
+  pull_request:
+    branches:
+    - 'main'
+    paths:
+    - 'src/app/backend/**'
+
+jobs:
+  backend_build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+
+      - name: Setup .NET Core
+        uses: actions/setup-dotnet@v1
+        with:
+          dotnet-version: 3.1.406
+      - name: Build with dotnet
+        run: dotnet build ./src/app/backend/DevOps.Backend.sln -c Release
+    
+      - name: dotnet publish
+        run: dotnet publish ./src/app/backend/DevOps.Backend.sln -c Release -o ./dist
+
+      - uses: actions/upload-artifact@master
+        with:
+          name: drop
+          path: ./dist
+
+  backend_deploy_dev:
+    runs-on: ubuntu-latest
+    environment: dev
+    needs: backend_build
+    steps:
+      - uses: actions/download-artifact@master
+        with:
+          name: drop
+          path: ./dist
+
+      - uses: azure/webapps-deploy@v1
+        with:
+          app-name: api
+          publish-profile: ${{ secrets.APP_PUBLISH_PROFILE_API }}
+          package: './dist'
+
+  backend_deploy_prd:
+    runs-on: ubuntu-latest
+    environment: prd
+    needs: backend_deploy_dev
+    if: github.ref == 'refs/heads/main'
+    steps:
+      - uses: actions/download-artifact@master
+        with:
+          name: drop
+          path: ./dist
+
+      - uses: azure/webapps-deploy@v1
+        with:
+          app-name: api
+          publish-profile: ${{ secrets.APP_PUBLISH_PROFILE_API }}
+          package: './dist'
